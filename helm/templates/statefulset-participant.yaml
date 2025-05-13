@@ -1,0 +1,140 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "helm.fullname" . }}-participant
+  labels:
+    {{- include "helm.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  serviceName: {{ include "helm.fullname" . }}-participant
+  selector:
+    matchLabels:
+      app: {{ include "helm.fullname" . }}-participant
+      {{- include "helm.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.participant.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        app: {{ include "helm.fullname" . }}-participant
+        {{- include "helm.labels" . | nindent 8 }}
+        {{- with .Values.participant.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "helm.serviceAccountName" . }}
+      {{- with .Values.participant.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: init
+          {{- with .Values.participant.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.postgresql.image.repository }}:{{ .Values.postgresql.image.tag }}"
+          imagePullPolicy: {{ .Values.postgresql.image.pullPolicy }}
+          env:
+            - name: PG_NODE
+              value: {{ .Values.db.host }}
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.existingSecret }}
+                  key: {{ .Values.db.secret_user_key }}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.existingSecret }}
+                  key: {{ .Values.db.secret_password_key }}
+            - name: PG_PARTICIPANT_DB
+              value: {{ .Values.participant.db.name }}
+          command:
+            - sh
+            - -c
+            - |
+              until psql -h "$$PG_NODE" -U "$$POSTGRES_USER" -c "select 1" >/dev/null 2>&1; do
+                echo "Waiting for PostgreSQL at $$PG_NODE...";
+                sleep 2;
+              done;
+              if ! psql -h "$$PG_NODE" --username "$$POSTGRES_USER" -tAc "SELECT 1 FROM pg_database WHERE datname = '$$PG_PARTICIPANT_DB'" | grep -q 1; then
+                psql -h "$$PG_NODE" --username "$$POSTGRES_USER" -c "CREATE DATABASE \"$$PG_PARTICIPANT_DB\"";
+              fi
+      containers:
+        - name: participant
+          {{- with .Values.participant.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.participant.image.repository }}:{{ .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.participant.image.pullPolicy }}
+          env:
+            - name: AUTH_JWKS_URL
+              value: "{{ .Values.auth.jwks_url }}"
+            - name: AUTH_TARGET_AUDIENCE
+              value: "{{ .Values.participant.auth.target_audience }}"
+            - name: CANTON_PARTICIPANT_ADMIN_USER_NAME
+              value: "{{ .Values.auth.ledger_api_admin_user }}"
+            - name: CANTON_PARTICIPANT_POSTGRES_SCHEMA
+              value: "{{ .Values.participant.db.schema }}"
+            - name: CANTON_PARTICIPANT_POSTGRES_SERVER
+              value: "{{ .Values.db.host }}"
+            - name: CANTON_PARTICIPANT_POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.existingSecret }}
+                  key: {{ .Values.db.secret_user_key }}
+            - name: CANTON_PARTICIPANT_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.existingSecret }}
+                  key: {{ .Values.db.secret_password_key }}
+            - name: CANTON_PARTICIPANT_POSTGRES_DB
+              value: "{{ .Values.participant.db.name }}"
+            - name: CANTON_PARTICIPANT_POSTGRES_PORT
+              value: "{{ .Values.db.port }}"
+          ports:
+            - containerPort: 5003
+              protocol: TCP
+              name: api
+            - containerPort: 10013
+              protocol: TCP
+              name: metrics
+          {{- with .Values.participant.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            grpc:
+              port: 5061
+              service: liveness
+            initialDelaySeconds: 600
+            periodSeconds: 60
+            failureThreshold: 5
+            timeoutSeconds: 10
+          readinessProbe:
+            grpc:
+              port: 5061
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+            timeoutSeconds: 10
+      {{- with .Values.participant.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.participant.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.participant.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,337 @@
+# Default values for helm.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
+replicaCount: 1
+
+# This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+imagePullSecrets: []
+
+# This is to override the chart name.
+nameOverride: ""
+fullnameOverride: ""
+
+# This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+ingressClassName: nginx
+
+# Current Migration ID in the network.
+migration_id: 1
+
+db:
+  # Name of the existing secret with DB credentials.
+  existingSecret: canton-db-secret
+
+  # Key in existingSecret for username.
+  secret_user_key: username
+
+  # Key in existingSecret for password.
+  secret_password_key: password
+
+  # Result of "{{ include "helm.fullname" . }}-postgresql" if postgres enabled
+  # Eg.: "canton-canton-validator-postgresql" if release="canton" and no overrides.
+  # Otherwise the hostname of your external postgresql.
+  host: canton-canton-validator-postgresql
+
+  # The postgres port to connect to and also use as the service port if postgresql is enabled.
+  port: 5432
+
+# Ref: https://docs.sync.global/validator_operator/validator_helm.html#configuring-an-auth0-tenant
+auth:
+  url: http://sso.example.com/
+  jwks_url: http://sso.example.com/.well-known/jwks.json
+  well_known_url: http://sso.example.com/.well-known/openid-configuration
+  scope:
+  wallet_admin_user: admin
+  ledger_api_admin_user: admin
+  # The existing Kubernetes Secret to load the validator client secret from.
+  existingSecret: auth-secret
+  # Key in existingSecret for the client secret.
+  validator_client_secret_key: client_secret
+
+participant:
+  image:
+    repository: ghcr.io/digital-asset/decentralized-canton-sync/docker/canton-participant
+    pullPolicy: IfNotPresent
+
+  auth:
+    # "validator-app" if using Dex.
+    target_audience: ledger-api.example.com
+
+  db:
+    name: participant
+    schema: participant
+
+  # This is for setting Kubernetes Annotations to a Pod.
+  # For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+  podAnnotations: {}
+  # This is for setting Kubernetes Labels to a Pod.
+  # For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+  podLabels: {}
+
+  podSecurityContext: {}
+    # fsGroup: 2000
+
+  securityContext: {}
+    # capabilities:
+    #   drop:
+    #   - ALL
+    # readOnlyRootFilesystem: true
+    # runAsNonRoot: true
+    # runAsUser: 1000
+
+  resources: {}
+    # We usually recommend not to specify default resources and to leave this as a conscious
+    # choice for the user. This also increases chances charts run on environments with little
+    # resources, such as Minikube. If you do want to specify resources, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+    # requests:
+    #   cpu: 100m
+    #   memory: 128Mi
+
+  ## Node labels for pod assignment
+  ## ref: https://kubernetes.io/docs/user-guide/node-selection/
+  nodeSelector: {}
+
+  ## Tolerations for pod assignment
+  ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+  tolerations: []
+
+  ## Affinity for pod assignment
+  ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+  affinity: {}
+
+validator:
+  image:
+    repository: ghcr.io/digital-asset/decentralized-canton-sync/docker/validator-app
+    pullPolicy: IfNotPresent
+
+  host: validator.example.com
+
+  wallet:
+    repository: ghcr.io/digital-asset/decentralized-canton-sync/docker/wallet-web-ui
+    client_id: wallet-ui
+
+    # Values below can be obtained from $SCAN_ADDRESS/api/scan/v0/splice-instance-names
+    network_name: Canton Network
+    favicon_url: https://www.canton.network/hubfs/cn-favicon-05%201-1.png
+    amulet_name: Canton Coin
+    amulet_acronym: CC
+    nameservice_name: Canton Name Service
+    nameservice_acronym: CNS
+
+  # Party ID hint for the validator operator party, should be of format <organization>-<function>-<enumerator>
+  identifier: my-validator-participant
+  party_hint: digitalAsset-finance-1
+  contact_point: contact@example.com
+
+  auth:
+    # "validator-app" if using Dex.
+    target_audience: http://validator.example.com
+    client_id: validator-app
+
+  sponsor_sv_address: https://sv.sv-1.global.canton.network.sync.global
+  scan_address: https://scan.sv-1.dev.global.canton.network.sync.global
+  onboarding_secret: abcdef
+
+  db:
+    name: validator
+    schema: validator
+
+  # This is for setting Kubernetes Annotations to a Pod.
+  # For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+  podAnnotations: {}
+  # This is for setting Kubernetes Labels to a Pod.
+  # For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+  podLabels: {}
+
+  podSecurityContext: {}
+    # fsGroup: 2000
+
+  securityContext: {}
+    # capabilities:
+    #   drop:
+    #   - ALL
+    # readOnlyRootFilesystem: true
+    # runAsNonRoot: true
+    # runAsUser: 1000
+
+  resources: {}
+    # We usually recommend not to specify default resources and to leave this as a conscious
+    # choice for the user. This also increases chances charts run on environments with little
+    # resources, such as Minikube. If you do want to specify resources, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+    # requests:
+    #   cpu: 100m
+    #   memory: 128Mi
+
+  ## Node labels for pod assignment
+  ## ref: https://kubernetes.io/docs/user-guide/node-selection/
+  nodeSelector: {}
+
+  ## Tolerations for pod assignment
+  ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+  tolerations: []
+
+  ## Affinity for pod assignment
+  ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+  affinity: {}
+
+postgresql:
+  enabled: true
+
+  image:
+    repository: postgres
+    tag: 16-bookworm
+    pullPolicy: IfNotPresent
+
+  storage:
+    size: 1Gi
+    storageClassName: hostpath
+
+  # This is for setting Kubernetes Annotations to a Pod.
+  # For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+  podAnnotations: {}
+  # This is for setting Kubernetes Labels to a Pod.
+  # For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+  podLabels: {}
+
+  podSecurityContext: {}
+    # fsGroup: 2000
+
+  securityContext: {}
+    # capabilities:
+    #   drop:
+    #   - ALL
+    # readOnlyRootFilesystem: true
+    # runAsNonRoot: true
+    # runAsUser: 1000
+
+  resources: {}
+    # We usually recommend not to specify default resources and to leave this as a conscious
+    # choice for the user. This also increases chances charts run on environments with little
+    # resources, such as Minikube. If you do want to specify resources, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+    # requests:
+    #   cpu: 100m
+    #   memory: 128Mi
+
+  # This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+  livenessProbe:
+    # httpGet:
+    #   path: /
+    #   port: http
+  readinessProbe:
+    # httpGet:
+    #   path: /
+    #   port: http
+
+  ## Node labels for pod assignment
+  ## ref: https://kubernetes.io/docs/user-guide/node-selection/
+  nodeSelector: {}
+
+  ## Tolerations for pod assignment
+  ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+  tolerations: []
+
+  ## Affinity for pod assignment
+  ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+  affinity: {}
+
+dex:
+  enabled: true
+
+  image:
+    repository: dexidp/dex
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  # Ingress host
+  host: sso.example.com
+
+  allowedOrigin: http://validator.example.com
+
+  issuer: http://sso.example.com
+  port: 80
+
+  clients:
+    wallet:
+      callback: http://wallet.example.com
+
+  staticPasswords:
+    - email: "admin@example.com"
+      hash: "$2a$10$RDHQetkkaYPqH150mtIyt.V3VU6qmJ7ZERHUMr/XK6czihKlZl2oq" # bcrypt admin123
+      username: "admin"
+      userID: "admin"  # Will appear in the JWT as `sub`
+
+  # This is for setting Kubernetes Annotations to a Pod.
+  # For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+  podAnnotations: {}
+  # This is for setting Kubernetes Labels to a Pod.
+  # For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+  podLabels: {}
+
+  podSecurityContext: {}
+    # fsGroup: 2000
+
+  securityContext: {}
+    # capabilities:
+    #   drop:
+    #   - ALL
+    # readOnlyRootFilesystem: true
+    # runAsNonRoot: true
+    # runAsUser: 1000
+
+  resources: {}
+    # We usually recommend not to specify default resources and to leave this as a conscious
+    # choice for the user. This also increases chances charts run on environments with little
+    # resources, such as Minikube. If you do want to specify resources, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+    # requests:
+    #   cpu: 100m
+    #   memory: 128Mi
+
+  # This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+  livenessProbe:
+    # httpGet:
+    #   path: /
+    #   port: http
+  readinessProbe:
+    # httpGet:
+    #   path: /
+    #   port: http
+
+  ## Node labels for pod assignment
+  ## ref: https://kubernetes.io/docs/user-guide/node-selection/
+  nodeSelector: {}
+
+  ## Tolerations for pod assignment
+  ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+  tolerations: []
+
+  ## Affinity for pod assignment
+  ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+  affinity: {}

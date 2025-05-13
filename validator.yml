@@ -1,0 +1,122 @@
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: 20m
+      max-file: "3"
+
+services:
+  validator-init:
+    restart: "no"
+    image: ${PG_DOCKER_REPO:-postgres}:${PG_DOCKER_TAG:-16-bookworm}
+    environment:
+      - POSTGRES_USER=${PG_USER:-postgres}
+      - PGPASSWORD=${PG_PASSWORD:-postgres}
+      - PG_NODE=${PG_NODE:-canton-postgres}
+      - PG_VALIDATOR_DB=${PG_VALIDATOR_DB:-validator}
+    <<: *logging
+    command: >
+      sh -c 'until psql -h "$$PG_NODE" -U "$$POSTGRES_USER" -c "select 1" >/dev/null 2>&1; do
+        echo "Waiting for PostgreSQL at $$PG_NODE..."; sleep 2;
+      done;
+      if ! psql -h "$$PG_NODE" --username "$$POSTGRES_USER" -tAc "SELECT 1 FROM pg_database WHERE datname = '\''$$PG_VALIDATOR_DB'\''" | grep -q 1; then
+        psql -h "$$PG_NODE" --username "$$POSTGRES_USER" -c "CREATE DATABASE \"$$PG_VALIDATOR_DB\"";
+      fi'
+  validator:
+    image: "${VALIDATOR_DOCKER_REPO}:${VALIDATOR_DOCKER_TAG}"
+    environment:
+      - SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_URL=${AUTH_WELLKNOWN_URL}
+      - SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_CLIENT_ID=${VALIDATOR_AUTH_CLIENT_ID}
+      - SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_CLIENT_SECRET=${VALIDATOR_AUTH_CLIENT_SECRET}
+      - SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_AUDIENCE=${LEDGER_API_AUTH_AUDIENCE}
+      - SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_SCOPE=${LEDGER_API_AUTH_SCOPE:-}
+      - SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_USER_NAME=${LEDGER_API_ADMIN_USER}
+      - SPLICE_APP_VALIDATOR_WALLET_USER_NAME=${WALLET_ADMIN_USER}
+      - SPLICE_APP_VALIDATOR_AUTH_AUDIENCE=${VALIDATOR_AUTH_AUDIENCE}
+      - SPLICE_APP_VALIDATOR_AUTH_JWKS_URL=${AUTH_JWKS_URL}
+      - SPLICE_APP_VALIDATOR_PARTICIPANT_ADDRESS=participant
+      - SPLICE_APP_VALIDATOR_SV_SPONSOR_ADDRESS=${SPONSOR_SV_ADDRESS}
+      - SPLICE_APP_VALIDATOR_ONBOARDING_SECRET=${ONBOARDING_SECRET}
+      - SPLICE_APP_VALIDATOR_SCAN_ADDRESS=${SCAN_ADDRESS}
+      - SPLICE_APP_VALIDATOR_PARTICIPANT_IDENTIFIER=${PARTICIPANT_IDENTIFIER}
+      - SPLICE_APP_VALIDATOR_PARTY_HINT=${PARTY_HINT}
+      - SPLICE_APP_CONTACT_POINT=${CONTACT_POINT}
+      - |
+        ADDITIONAL_CONFIG_PERSISTENCE=
+            canton.validator-apps.validator_backend.storage {
+              type = postgres
+              config {
+                dataSourceClass = "org.postgresql.ds.PGSimpleDataSource"
+                properties = {
+                  databaseName = ${PG_VALIDATOR_DB:-validator}
+                  currentSchema = validator
+                  serverName = ${PG_NODE}
+                  portNumber = ${PG_PORT}
+                  user = ${PG_USER}
+                  password = ${PG_PASSWORD}
+                  tcpKeepAlive = true
+                }
+              }
+            }
+      - |
+        ADDITIONAL_CONFIG_APP_INSTANCES=
+          canton.validator-apps.validator_backend.app-instances={}
+      - |
+        ADDITIONAL_CONFIG_BFT_SCAN=
+          canton.validator-apps.validator_backend.scan-client.type = "bft"
+          canton.validator-apps.validator_backend.scan-client.seed-urls = [ "${SCAN_ADDRESS}" ]
+      - |
+        ADDITIONAL_CONFIG_MIGRATION_ID=
+            canton.validator-apps.validator_backend {
+              domain-migration-id = ${MIGRATION_ID}
+            }
+      - ADDITIONAL_CONFIG_GLOBAL_DOMAIN_UPGRADE_DUMP_PATH=canton.validator-apps.validator_backend.domain-migration-dump-path = "/domain-upgrade-dump/domain_migration_dump.json"
+    restart: unless-stopped
+    <<: *logging
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${VALIDATOR_HOST}.service=${VALIDATOR_HOST}
+      - traefik.http.routers.${VALIDATOR_HOST}.entrypoints=websecure
+      - traefik.http.routers.${VALIDATOR_HOST}.rule=Host(`${VALIDATOR_HOST}.${DOMAIN}`)
+      - traefik.http.routers.${VALIDATOR_HOST}.tls.certresolver=letsencrypt
+      - traefik.http.routers.${VALIDATOR_HOST}lb.service=${VALIDATOR_HOST}
+      - traefik.http.routers.${VALIDATOR_HOST}lb.entrypoints=websecure
+      - traefik.http.routers.${VALIDATOR_HOST}lb.rule=Host(`${DEX_LB}.${DOMAIN}`)
+      - traefik.http.routers.${VALIDATOR_HOST}lb.tls.certresolver=letsencrypt
+      - traefik.http.services.${VALIDATOR_HOST}.loadbalancer.server.port=5003
+      - metrics.scrape=true
+      - metrics.path=/metrics
+      - metrics.port=10013
+      - metrics.instance=monitoring
+      - metrics.network=canton-${MIGRATION_ID}
+    volumes:
+      - domain-upgrade-dump:/domain-upgrade-dump
+
+  wallet-ui:
+    image: "${WALLET_UI_DOCKER_REPO}:${WALLET_UI_DOCKER_TAG}"
+    environment:
+      - SPLICE_APP_UI_AUTH_AUDIENCE=${VALIDATOR_AUTH_AUDIENCE}
+      - SPLICE_APP_UI_AUTH_CLIENT_ID=${WALLET_UI_CLIENT_ID}
+      - SPLICE_APP_UI_AUTH_URL=${AUTH_URL}
+      - SPLICE_APP_UI_HTTP_URL=true
+      - SPLICE_APP_UI_NETWORK_NAME=${WALLET_UI_NETWORK_NAME}
+      - SPLICE_APP_UI_NETWORK_FAVICON_URL=${WALLET_UI_NETWORK_FAVICON_URL}
+      - SPLICE_APP_UI_AMULET_NAME=${WALLET_UI_AMULET_NAME}
+      - SPLICE_APP_UI_AMULET_NAME_ACRONYM=${WALLET_UI_AMULET_NAME_ACRONYM}
+      - SPLICE_APP_UI_NAME_SERVICE_NAME=${WALLET_UI_NAME_SERVICE_NAME}
+      - SPLICE_APP_UI_NAME_SERVICE_NAME_ACRONYM=${WALLET_UI_NAME_SERVICE_NAME_ACRONYM}
+    <<: *logging
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${DEX_HOST}.service=${DEX_HOST}
+      - traefik.http.routers.${DEX_HOST}.entrypoints=websecure
+      - traefik.http.routers.${DEX_HOST}.rule=Host(`${DEX_HOST}.${DOMAIN}`)
+      - traefik.http.routers.${DEX_HOST}.tls.certresolver=letsencrypt
+      - traefik.http.routers.${DEX_HOST}lb.service=${DEX_HOST}
+      - traefik.http.routers.${DEX_HOST}lb.entrypoints=websecure
+      - traefik.http.routers.${DEX_HOST}lb.rule=Host(`${DEX_LB}.${DOMAIN}`)
+      - traefik.http.routers.${DEX_HOST}lb.tls.certresolver=letsencrypt
+      - traefik.http.services.${DEX_HOST}.loadbalancer.server.port=8080
+
+volumes:
+  domain-upgrade-dump:

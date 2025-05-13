@@ -1,0 +1,46 @@
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: 20m
+      max-file: "3"
+
+services:
+  participant-init:
+    restart: "no"
+    image: ${PG_DOCKER_REPO:-postgres}:${PG_DOCKER_TAG:-16-bookworm}
+    environment:
+      - POSTGRES_USER=${PG_USER:-postgres}
+      - PGPASSWORD=${PG_PASSWORD:-postgres}
+      - PG_NODE=${PG_NODE:-canton-postgres}
+      - PG_PARTICIPANT_DB=${PG_PARTICIPANT_DB:-participant}
+    <<: *logging
+    command: >
+      sh -c 'until psql -h "$$PG_NODE" -U "$$POSTGRES_USER" -c "select 1" >/dev/null 2>&1; do
+        echo "Waiting for PostgreSQL at $$PG_NODE..."; sleep 2;
+      done;
+      if ! psql -h "$$PG_NODE" --username "$$POSTGRES_USER" -tAc "SELECT 1 FROM pg_database WHERE datname = '\''$$PG_PARTICIPANT_DB'\''" | grep -q 1; then
+        psql -h "$$PG_NODE" --username "$$POSTGRES_USER" -c "CREATE DATABASE \"$$PG_PARTICIPANT_DB\"";
+      fi'
+
+  participant:
+    image: ${PARTICIPANT_DOCKER_REPO}:${PARTICIPANT_DOCKER_TAG}
+    pull_policy: never
+    environment:
+      - AUTH_JWKS_URL=${AUTH_JWKS_URL}
+      - AUTH_WELLKNOWN_URL=${AUTH_WELLKNOWN_URL}
+      - AUTH_TARGET_AUDIENCE=${LEDGER_API_AUTH_AUDIENCE}
+      - CANTON_PARTICIPANT_ADMIN_USER_NAME=${LEDGER_API_ADMIN_USER}
+      - CANTON_PARTICIPANT_POSTGRES_SERVER=${PG_NODE}
+      - CANTON_PARTICIPANT_POSTGRES_SCHEMA=participant
+      - CANTON_PARTICIPANT_POSTGRES_USER=${PG_USER}
+      - CANTON_PARTICIPANT_POSTGRES_PASSWORD=${PG_PASSWORD}
+      - CANTON_PARTICIPANT_POSTGRES_DB=${PG_PARTICIPANT_DB}
+      - CANTON_PARTICIPANT_POSTGRES_PORT=${PG_PORT}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    restart: unless-stopped
+    <<: *logging
+    depends_on:
+      participant-init:
+        condition: service_completed_successfully

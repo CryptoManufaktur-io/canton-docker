@@ -1,0 +1,237 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "helm.fullname" . }}-validator
+  labels:
+    {{- include "helm.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  serviceName: {{ include "helm.fullname" . }}-validator
+  selector:
+    matchLabels:
+      app: {{ include "helm.fullname" . }}-validator
+      {{- include "helm.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.validator.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        app: {{ include "helm.fullname" . }}-validator
+        {{- include "helm.labels" . | nindent 8 }}
+        {{- with .Values.validator.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+       {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "helm.serviceAccountName" . }}
+      {{- with .Values.validator.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: init
+          {{- with .Values.validator.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.postgresql.image.repository }}:{{ .Values.postgresql.image.tag }}"
+          imagePullPolicy: {{ .Values.postgresql.image.pullPolicy }}
+          env:
+            - name: PG_NODE
+              value: "{{ .Values.db.host }}"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.existingSecret }}
+                  key: {{ .Values.db.secret_user_key }}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.existingSecret }}
+                  key: {{ .Values.db.secret_password_key }}
+            - name: PG_VALIDATOR_DB
+              value: {{ .Values.validator.db.name }}
+          command:
+            - sh
+            - -c
+            - |
+              until psql -h "$$PG_NODE" -U "$$POSTGRES_USER" -c "select 1" >/dev/null 2>&1; do
+                echo "Waiting for PostgreSQL at $$PG_NODE...";
+                sleep 2;
+              done;
+              if ! psql -h "$$PG_NODE" --username "$$POSTGRES_USER" -tAc "SELECT 1 FROM pg_database WHERE datname = '$$PG_VALIDATOR_DB'" | grep -q 1; then
+                psql -h "$$PG_NODE" --username "$$POSTGRES_USER" -c "CREATE DATABASE \"$$PG_VALIDATOR_DB\"";
+              fi
+      containers:
+        - name: validator
+          {{- with .Values.validator.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.validator.image.repository }}:{{ .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.validator.image.pullPolicy }}
+          env:
+            - name: PG_SCHEMA
+              value: "{{ .Values.validator.db.schema }}"
+            - name: PG_HOST
+              value: "{{ .Values.db.host }}"
+            - name: PG_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.existingSecret }}
+                  key: {{ .Values.db.secret_user_key }}
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.existingSecret }}
+                  key: {{ .Values.db.secret_password_key }}
+            - name: PG_VALIDATOR_DB
+              value: {{ .Values.validator.db.name }}
+            - name: PG_PORT
+              value: "{{ .Values.db.port }}"
+            - name: SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_URL
+              value: "{{ .Values.auth.well_known_url }}"
+            - name: SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_CLIENT_ID
+              value: "{{ .Values.validator.auth.client_id }}"
+            - name: SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.existingSecret }}
+                  key: {{ .Values.auth.validator_client_secret_key }}
+            - name: SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_AUDIENCE
+              value: "{{ .Values.validator.auth.target_audience }}"
+            - name: SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_SCOPE
+              value: "{{ .Values.auth.scope }}"
+            - name: SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_USER_NAME
+              value: "{{ .Values.auth.wallet_admin_user }}"
+            - name: SPLICE_APP_VALIDATOR_WALLET_USER_NAME
+              value: "{{ .Values.auth.wallet_admin_user }}"
+            - name: SPLICE_APP_VALIDATOR_AUTH_AUDIENCE
+              value: "{{ .Values.validator.auth.target_audience }}"
+            - name: SPLICE_APP_VALIDATOR_AUTH_JWKS_URL
+              value: "{{ .Values.auth.jwks_url }}"
+            - name: SPLICE_APP_VALIDATOR_PARTICIPANT_ADDRESS
+              value: {{ include "helm.fullname" . }}-participant
+            - name: SPLICE_APP_VALIDATOR_SV_SPONSOR_ADDRESS
+              value: "{{ .Values.validator.sponsor_sv_address }}"
+            - name: SPLICE_APP_VALIDATOR_ONBOARDING_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "helm.fullname" . }}-validator-secret
+                  key: onboarding_secret
+            - name: SPLICE_APP_VALIDATOR_SCAN_ADDRESS
+              value: "{{ .Values.validator.scan_address }}"
+            - name: SPLICE_APP_VALIDATOR_PARTICIPANT_IDENTIFIER
+              value: "{{ .Values.validator.identifier }}"
+            - name: SPLICE_APP_VALIDATOR_PARTY_HINT
+              value: "{{ .Values.validator.party_hint }}"
+            - name: SPLICE_APP_CONTACT_POINT
+              value: "{{ .Values.validator.contact_point }}"
+            - name: ADDITIONAL_CONFIG_PERSISTENCE
+              value: |-
+                canton.validator-apps.validator_backend.storage {
+                  type = postgres
+                  config {
+                    dataSourceClass = "org.postgresql.ds.PGSimpleDataSource"
+                    properties = {
+                      databaseName = ${PG_VALIDATOR_DB}
+                      currentSchema = ${PG_SCHEMA}
+                      serverName = ${PG_HOST}
+                      portNumber = ${PG_PORT}
+                      user = ${PG_USER}
+                      password = ${PG_PASSWORD}
+                      tcpKeepAlive = true
+                    }
+                  }
+                }
+            - name: ADDITIONAL_CONFIG_APP_INSTANCES
+              value: |-
+                canton.validator-apps.validator_backend.app-instances={}
+            - name: ADDITIONAL_CONFIG_BFT_SCAN
+              value: |-
+                canton.validator-apps.validator_backend.scan-client.type = "bft"
+                canton.validator-apps.validator_backend.scan-client.seed-urls = [ "{{ .Values.validator.scan_address }}" ]
+            - name: ADDITIONAL_CONFIG_MIGRATION_ID
+              value: |-
+                canton.validator-apps.validator_backend {
+                  domain-migration-id = {{ .Values.migration_id }}
+                }
+            - name: ADDITIONAL_CONFIG_GLOBAL_DOMAIN_UPGRADE_DUMP_PATH
+              value: |-
+                canton.validator-apps.validator_backend.domain-migration-dump-path = "/domain-upgrade-dump/domain_migration_dump.json"
+          ports:
+            - containerPort: 5003
+              protocol: TCP
+              name: api
+            - containerPort: 10013
+              protocol: TCP
+              name: metrics
+          {{- with .Values.validator.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          # livenessProbe:
+          #   httpGet:
+          #     path: /api/validator/livez
+          #     port: 5003
+          #   initialDelaySeconds: 60
+          #   periodSeconds: 60
+          #   failureThreshold: 5
+          #   timeoutSeconds: 10
+          # readinessProbe:
+          #   httpGet:
+          #     path: /api/validator/readyz
+          #     port: 5003
+          #   initialDelaySeconds: 5
+          #   periodSeconds: 5
+          #   failureThreshold: 5
+          #   timeoutSeconds: 3
+        - name: wallet-ui
+          {{- with .Values.validator.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.validator.wallet.repository }}:{{ .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.validator.image.pullPolicy }}
+          env:
+            - name: SPLICE_APP_UI_AUTH_AUDIENCE
+              value: "{{ .Values.validator.auth.target_audience }}"
+            - name: SPLICE_APP_UI_AUTH_CLIENT_ID
+              value: "{{ .Values.validator.wallet.client_id }}"
+            - name: SPLICE_APP_UI_AUTH_URL
+              value: "{{ .Values.auth.url }}"
+            - name: SPLICE_APP_UI_HTTP_URL
+              value: "true"
+            - name: SPLICE_APP_UI_NETWORK_NAME
+              value: "{{ .Values.validator.wallet.network_name }}"
+            - name: SPLICE_APP_UI_NETWORK_FAVICON_URL
+              value: "{{ .Values.validator.wallet.favicon_url }}"
+            - name: SPLICE_APP_UI_AMULET_NAME
+              value: "{{ .Values.validator.wallet.amulet_name }}"
+            - name: SPLICE_APP_UI_AMULET_NAME_ACRONYM
+              value: "{{ .Values.validator.wallet.amulet_acronym }}"
+            - name: SPLICE_APP_UI_NAME_SERVICE_NAME
+              value: "{{ .Values.validator.wallet.nameservice_name }}"
+            - name: SPLICE_APP_UI_NAME_SERVICE_NAME_ACRONYM
+              value: "{{ .Values.validator.wallet.nameservice_acronym }}"
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+              name: wallet-ui
+      {{- with .Values.validator.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.validator.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.validator.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

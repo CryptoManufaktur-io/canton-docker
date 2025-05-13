@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "helm.fullname" . }}-participant
+  labels:
+    app: {{ include "helm.fullname" . }}-participant
+    {{- include "helm.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ include "helm.fullname" . }}-participant
+  ports:
+    - name: ledger-api
+      port: 5001
+      targetPort: 5001
+    - name: admin-api
+      port: 5002
+      targetPort: 5002
+    - name: json-api
+      port: 7575
+      targetPort: 7575
+    - name: metrics
+      port: 10013
+      targetPort: 10013

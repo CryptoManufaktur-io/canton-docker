@@ -1,0 +1,27 @@
+{{- if .Values.dex.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "helm.fullname" . }}-dex-ingress
+  labels:
+    {{- include "helm.labels" . | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "{{ .Values.dex.allowedOrigin }}"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Authorization,Content-Type,Accept,Origin"
+spec:
+  ingressClassName: {{ .Values.ingressClassName }}
+  rules:
+  - host: {{ .Values.dex.host }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "helm.fullname" . }}-dex-service
+            port:
+              name: http
+{{- end }}

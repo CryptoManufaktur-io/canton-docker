@@ -1,0 +1,32 @@
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: 100m
+      max-file: "3"
+      tag: '{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}'
+
+services:
+  postgres:
+    restart: "unless-stopped"
+    stop_grace_period: 1m
+    image: ${PG_DOCKER_REPO:-postgres}:${PG_DOCKER_TAG:-16-bookworm}
+    environment:
+      - POSTGRES_USER=${PG_USER:-postgres}
+      - POSTGRES_PASSWORD=${PG_PASSWORD:-postgres}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      start_period: 5s
+      interval: 10s
+      timeout: 5s
+    <<: *logging
+    volumes:
+      - postgres-data:/var/lib/postgresql/data/
+    command: postgres ${PG_PARAMS}
+    networks:
+      default:
+        aliases:
+          - ${PG_NODE}
+
+volumes:
+  postgres-data:

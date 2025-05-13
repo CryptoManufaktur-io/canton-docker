@@ -1,0 +1,12 @@
+services:
+  participant:
+    environment:
+      - |
+        ADDITIONAL_CONFIG_SPLICE_PARTICIPANT_CRYPTO_PROVIDER_KMS=
+            canton.participants.participant.crypto {
+              provider = kms
+              kms = {
+                type = aws
+                region = ${AWS_REGION}
+              }
+            }

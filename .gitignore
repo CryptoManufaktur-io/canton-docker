@@ -1,0 +1,9 @@
+.env*
+*.swp
+*.bak
+*.original
+
+.DS_Store
+
+custom.yml
+values.yml
