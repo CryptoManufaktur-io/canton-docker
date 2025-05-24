@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "helm.fullname" . }}-wallet-ui
+  labels:
+    app: {{ include "helm.fullname" . }}-wallet-ui
+    {{- include "helm.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ include "helm.fullname" . }}-wallet-ui
+  ports:
+    - name: wallet-ui
+      port: 8080
+      targetPort: 8080

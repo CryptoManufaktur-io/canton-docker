@@ -26,6 +26,7 @@ services:
   participant:
     image: ${PARTICIPANT_DOCKER_REPO}:${PARTICIPANT_DOCKER_TAG}
     pull_policy: never
+    network_mode: ${NETWORK_MODE}
     environment:
       - AUTH_JWKS_URL=${AUTH_JWKS_URL}
       - AUTH_WELLKNOWN_URL=${AUTH_WELLKNOWN_URL}
@@ -37,8 +38,6 @@ services:
       - CANTON_PARTICIPANT_POSTGRES_PASSWORD=${PG_PASSWORD}
       - CANTON_PARTICIPANT_POSTGRES_DB=${PG_PARTICIPANT_DB}
       - CANTON_PARTICIPANT_POSTGRES_PORT=${PG_PORT}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
     restart: unless-stopped
     <<: *logging
     depends_on:

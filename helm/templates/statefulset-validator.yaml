@@ -97,22 +97,20 @@ spec:
             - name: SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_URL
               value: "{{ .Values.auth.well_known_url }}"
             - name: SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_CLIENT_ID
-              value: "{{ .Values.validator.auth.client_id }}"
+              value: "{{ .Values.auth.validator.client_id }}"
             - name: SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.auth.existingSecret }}
                   key: {{ .Values.auth.validator_client_secret_key }}
             - name: SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_AUDIENCE
-              value: "{{ .Values.validator.auth.target_audience }}"
+              value: "{{ .Values.auth.ledger_api.audience }}"
             - name: SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_SCOPE
-              value: "{{ .Values.auth.scope }}"
+              value: "{{ .Values.auth.ledger_api.scope }}"
             - name: SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_USER_NAME
-              value: "{{ .Values.auth.wallet_admin_user }}"
-            - name: SPLICE_APP_VALIDATOR_WALLET_USER_NAME
-              value: "{{ .Values.auth.wallet_admin_user }}"
+              value: "{{ .Values.auth.ledger_api.admin_user }}"
             - name: SPLICE_APP_VALIDATOR_AUTH_AUDIENCE
-              value: "{{ .Values.validator.auth.target_audience }}"
+              value: "{{ .Values.auth.validator.audience }}"
             - name: SPLICE_APP_VALIDATOR_AUTH_JWKS_URL
               value: "{{ .Values.auth.jwks_url }}"
             - name: SPLICE_APP_VALIDATOR_PARTICIPANT_ADDRESS
@@ -191,38 +189,6 @@ spec:
           #   periodSeconds: 5
           #   failureThreshold: 5
           #   timeoutSeconds: 3
-        - name: wallet-ui
-          {{- with .Values.validator.securityContext }}
-          securityContext:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          image: "{{ .Values.validator.wallet.repository }}:{{ .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.validator.image.pullPolicy }}
-          env:
-            - name: SPLICE_APP_UI_AUTH_AUDIENCE
-              value: "{{ .Values.validator.auth.target_audience }}"
-            - name: SPLICE_APP_UI_AUTH_CLIENT_ID
-              value: "{{ .Values.validator.wallet.client_id }}"
-            - name: SPLICE_APP_UI_AUTH_URL
-              value: "{{ .Values.auth.url }}"
-            - name: SPLICE_APP_UI_HTTP_URL
-              value: "true"
-            - name: SPLICE_APP_UI_NETWORK_NAME
-              value: "{{ .Values.validator.wallet.network_name }}"
-            - name: SPLICE_APP_UI_NETWORK_FAVICON_URL
-              value: "{{ .Values.validator.wallet.favicon_url }}"
-            - name: SPLICE_APP_UI_AMULET_NAME
-              value: "{{ .Values.validator.wallet.amulet_name }}"
-            - name: SPLICE_APP_UI_AMULET_NAME_ACRONYM
-              value: "{{ .Values.validator.wallet.amulet_acronym }}"
-            - name: SPLICE_APP_UI_NAME_SERVICE_NAME
-              value: "{{ .Values.validator.wallet.nameservice_name }}"
-            - name: SPLICE_APP_UI_NAME_SERVICE_NAME_ACRONYM
-              value: "{{ .Values.validator.wallet.nameservice_acronym }}"
-          ports:
-            - containerPort: 8080
-              protocol: TCP
-              name: wallet-ui
       {{- with .Values.validator.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

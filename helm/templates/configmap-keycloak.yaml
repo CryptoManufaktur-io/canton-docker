@@ -1,0 +1,16 @@
+{{- if .Values.keycloak.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "helm.fullname" . }}-keycloak-config
+  labels:
+    {{- include "helm.labels" . | nindent 4 }}
+data:
+  realm.json: |-
+{{ toJson (dict
+    "realm"    "canton"
+    "enabled"  .Values.keycloak.enabled
+    "clientScopes"   .Values.keycloak.clientScopes
+    "clients"  .Values.keycloak.clients
+  ) | indent 4 }}
+{{- end }}

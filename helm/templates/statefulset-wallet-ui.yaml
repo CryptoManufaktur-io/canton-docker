@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "helm.fullname" . }}-wallet-ui
+  labels:
+    {{- include "helm.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  serviceName: {{ include "helm.fullname" . }}-wallet-ui
+  selector:
+    matchLabels:
+      app: {{ include "helm.fullname" . }}-wallet-ui
+      {{- include "helm.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.validator.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        app: {{ include "helm.fullname" . }}-wallet-ui
+        {{- include "helm.labels" . | nindent 8 }}
+        {{- with .Values.validator.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+       {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "helm.serviceAccountName" . }}
+      {{- with .Values.validator.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: wallet-ui
+          {{- with .Values.validator.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.wallet.repository }}:{{ .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.validator.image.pullPolicy }}
+          env:
+            - name: SPLICE_APP_UI_AUTH_AUDIENCE
+              value: "{{ .Values.auth.validator.audience }}"
+            - name: SPLICE_APP_UI_AUTH_CLIENT_ID
+              value: "{{ .Values.auth.wallet.client_id }}"
+            - name: SPLICE_APP_UI_AUTH_URL
+              value: "{{ .Values.auth.url }}"
+            - name: SPLICE_APP_UI_HTTP_URL
+              value: "true"
+            - name: SPLICE_APP_UI_NETWORK_NAME
+              value: "{{ .Values.wallet.network_name }}"
+            - name: SPLICE_APP_UI_NETWORK_FAVICON_URL
+              value: "{{ .Values.wallet.favicon_url }}"
+            - name: SPLICE_APP_UI_AMULET_NAME
+              value: "{{ .Values.wallet.amulet_name }}"
+            - name: SPLICE_APP_UI_AMULET_NAME_ACRONYM
+              value: "{{ .Values.wallet.amulet_acronym }}"
+            - name: SPLICE_APP_UI_NAME_SERVICE_NAME
+              value: "{{ .Values.wallet.nameservice_name }}"
+            - name: SPLICE_APP_UI_NAME_SERVICE_NAME_ACRONYM
+              value: "{{ .Values.wallet.nameservice_acronym }}"
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+              name: wallet-ui
+      {{- with .Values.validator.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.validator.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.validator.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

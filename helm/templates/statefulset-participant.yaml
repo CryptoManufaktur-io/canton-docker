@@ -79,9 +79,9 @@ spec:
             - name: AUTH_JWKS_URL
               value: "{{ .Values.auth.jwks_url }}"
             - name: AUTH_TARGET_AUDIENCE
-              value: "{{ .Values.participant.auth.target_audience }}"
+              value: "{{ .Values.auth.ledger_api.audience }}"
             - name: CANTON_PARTICIPANT_ADMIN_USER_NAME
-              value: "{{ .Values.auth.ledger_api_admin_user }}"
+              value: "{{ .Values.auth.ledger_api.admin_user }}"
             - name: CANTON_PARTICIPANT_POSTGRES_SCHEMA
               value: "{{ .Values.participant.db.schema }}"
             - name: CANTON_PARTICIPANT_POSTGRES_SERVER

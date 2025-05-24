@@ -52,9 +52,19 @@ auth:
   url: http://sso.example.com/
   jwks_url: http://sso.example.com/.well-known/jwks.json
   well_known_url: http://sso.example.com/.well-known/openid-configuration
-  scope:
-  wallet_admin_user: admin
-  ledger_api_admin_user: admin
+
+  ledger_api:
+    admin_user: 5dc283c9-edc0-4926-a2e9-a9b4907fd578
+    audience: https://canton.network.global
+    scope: daml_ledger_api
+
+  wallet:
+    client_id: wallet-ui
+
+  validator:
+    client_id: validator-app
+    audience: http://validator.example.com
+
   # The existing Kubernetes Secret to load the validator client secret from.
   existingSecret: auth-secret
   # Key in existingSecret for the client secret.
@@ -64,10 +74,6 @@ participant:
   image:
     repository: ghcr.io/digital-asset/decentralized-canton-sync/docker/canton-participant
     pullPolicy: IfNotPresent
-
-  auth:
-    # "validator-app" if using Dex.
-    target_audience: ledger-api.example.com
 
   db:
     name: participant
@@ -115,6 +121,17 @@ participant:
   ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
   affinity: {}
 
+wallet:
+  repository: ghcr.io/digital-asset/decentralized-canton-sync/docker/wallet-web-ui
+
+  # Values below can be obtained from $SCAN_ADDRESS/api/scan/v0/splice-instance-names
+  network_name: Canton Network
+  favicon_url: https://www.canton.network/hubfs/cn-favicon-05%201-1.png
+  amulet_name: Canton Coin
+  amulet_acronym: CC
+  nameservice_name: Canton Name Service
+  nameservice_acronym: CNS
+
 validator:
   image:
     repository: ghcr.io/digital-asset/decentralized-canton-sync/docker/validator-app
@@ -122,27 +139,10 @@ validator:
 
   host: validator.example.com
 
-  wallet:
-    repository: ghcr.io/digital-asset/decentralized-canton-sync/docker/wallet-web-ui
-    client_id: wallet-ui
-
-    # Values below can be obtained from $SCAN_ADDRESS/api/scan/v0/splice-instance-names
-    network_name: Canton Network
-    favicon_url: https://www.canton.network/hubfs/cn-favicon-05%201-1.png
-    amulet_name: Canton Coin
-    amulet_acronym: CC
-    nameservice_name: Canton Name Service
-    nameservice_acronym: CNS
-
   # Party ID hint for the validator operator party, should be of format <organization>-<function>-<enumerator>
   identifier: my-validator-participant
   party_hint: digitalAsset-finance-1
   contact_point: contact@example.com
-
-  auth:
-    # "validator-app" if using Dex.
-    target_audience: http://validator.example.com
-    client_id: validator-app
 
   sponsor_sv_address: https://sv.sv-1.global.canton.network.sync.global
   scan_address: https://scan.sv-1.dev.global.canton.network.sync.global
@@ -258,31 +258,62 @@ postgresql:
   ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
   affinity: {}
 
-dex:
+keycloak:
   enabled: true
 
   image:
-    repository: dexidp/dex
+    repository: quay.io/keycloak/keycloak
     tag: latest
     pullPolicy: IfNotPresent
 
   # Ingress host
   host: sso.example.com
-
-  allowedOrigin: http://validator.example.com
-
-  issuer: http://sso.example.com
   port: 80
 
-  clients:
-    wallet:
-      callback: http://wallet.example.com
+  admin_username: admin
+  admin_default_password: admin123
 
-  staticPasswords:
-    - email: "admin@example.com"
-      hash: "$2a$10$RDHQetkkaYPqH150mtIyt.V3VU6qmJ7ZERHUMr/XK6czihKlZl2oq" # bcrypt admin123
-      username: "admin"
-      userID: "admin"  # Will appear in the JWT as `sub`
+  volume_size: 1Gi
+
+  clientScopes:
+    - name: openid
+      protocol: openid-connect
+      attributes:
+        include.in.token.scope: true
+      protocolMappers:
+        - name: subject
+          protocol: openid-connect
+          protocolMapper: oidc-sub-mapper
+          consentRequired: false
+          config:
+            introspection.token.claim: "true"
+            access.token.claim: "true"
+    - name: daml_ledger_api
+      protocol: openid-connect
+      attributes:
+        include.in.token.scope: true
+      protocolMappers:
+        - name: audience
+          protocol: openid-connect
+          protocolMapper: oidc-audience-mapper
+          consentRequired: false
+          config:
+            included.custom.audience: https://canton.network.global
+
+  clients:
+    - clientId: validator-app
+      publicClient: false
+      secret: validator-app-secret
+      serviceAccountsEnabled: true
+      defaultClientScopes: ["daml_ledger_api"]
+      optionalClientScopes: []
+
+    - clientId: wallet-ui
+      publicClient: true
+      redirectUris: ["http://wallet.example.com"]
+      standardFlowEnabled: true
+      defaultClientScopes: ["openid"]
+      optionalClientScopes: ["offline_access"]
 
   # This is for setting Kubernetes Annotations to a Pod.
   # For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/

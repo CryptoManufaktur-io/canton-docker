@@ -1,0 +1,42 @@
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: 20m
+      max-file: "3"
+
+services:
+  keycloak:
+    image: ${KEYCLOAK_DOCKER_TAG}:${KEYCLOAK_DOCKET_TAG}
+    network_mode: ${NETWORK_MODE}
+    restart: unless-stopped
+    stop_grace_period: 5m
+    command:
+      - start-dev
+      - --http-port=${KEYCLOAK_PORT:-80}
+      - --hostname=${KEYCLOAK_HOST}.${DOMAIN}
+      - --import-realm
+      - --db=dev-file
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ./keycloak/canton.json:/opt/keycloak/data/import/canton.json:ro
+    <<: *logging
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${KEYCLOAK_HOST}.service=${KEYCLOAK_HOST}
+      - traefik.http.routers.${KEYCLOAK_HOST}.entrypoints=websecure
+      - traefik.http.routers.${KEYCLOAK_HOST}.rule=Host(`${KEYCLOAK_HOST}.${DOMAIN}`)
+      - traefik.http.routers.${KEYCLOAK_HOST}.tls.certresolver=letsencrypt
+      - traefik.http.routers.${KEYCLOAK_HOST}lb.service=${KEYCLOAK_HOST}
+      - traefik.http.routers.${KEYCLOAK_HOST}lb.entrypoints=websecure
+      - traefik.http.routers.${KEYCLOAK_HOST}lb.rule=Host(`${KEYCLOAK_LB}.${DOMAIN}`)
+      - traefik.http.routers.${KEYCLOAK_HOST}lb.tls.certresolver=letsencrypt
+      - traefik.http.services.${KEYCLOAK_HOST}.loadbalancer.server.port=${KEYCLOAK_PORT:-5556}
+      - metrics.scrape=true
+      - metrics.path=/metrics
+      - metrics.port=${KEYCLOAK_PORT:-5556}
+      - metrics.instance=babylon
+      - metrics.network=canton-${MIGRATION_ID}
+
+volumes:
+  keycloak-data:
