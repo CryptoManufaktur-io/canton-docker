@@ -20,6 +20,28 @@
           }
         }
       ]
+    },
+    {
+      "name": "daml_ledger_api",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": "false",
+          "config": {
+            "included.client.audience": "https://canton.network.global",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "claim.name": "aud",
+            "userinfo.token.claim": "false"
+          }
+        }
+      ]
     }
   ],
   "clients": [
