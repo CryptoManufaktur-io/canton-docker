@@ -6,6 +6,22 @@ x-logging: &logging
       max-file: "3"
 
 services:
+  keycloak-init:
+    restart: "no"
+    image: ${PG_DOCKER_REPO:-postgres}:${PG_DOCKER_TAG:-16-bookworm}
+    environment:
+      - POSTGRES_USER=${PG_USER:-postgres}
+      - PGPASSWORD=${PG_PASSWORD:-postgres}
+      - PG_NODE=${PG_NODE:-canton-postgres}
+      - PG_VALIDATOR_DB=${KEYCLOAK_DB}
+    <<: *logging
+    command: >
+      sh -c 'until psql -h "$$PG_NODE" -U "$$POSTGRES_USER" -c "select 1" >/dev/null 2>&1; do
+        echo "Waiting for PostgreSQL at $$PG_NODE..."; sleep 2;
+      done;
+      if ! psql -h "$$PG_NODE" --username "$$POSTGRES_USER" -tAc "SELECT 1 FROM pg_database WHERE datname = '\''$$PG_VALIDATOR_DB'\''" | grep -q 1; then
+        psql -h "$$PG_NODE" --username "$$POSTGRES_USER" -c "CREATE DATABASE \"$$PG_VALIDATOR_DB\"";
+      fi'
   keycloak:
     image: ${KEYCLOAK_DOCKER_TAG}:${KEYCLOAK_DOCKET_TAG}
     network_mode: ${NETWORK_MODE}
@@ -13,14 +29,23 @@ services:
     stop_grace_period: 5m
     command:
       - start-dev
-      - --http-port=${KEYCLOAK_PORT:-80}
-      - --hostname=${KEYCLOAK_HOST}.${DOMAIN}
+      - --http-port=${KEYCLOAK_PORT:-5556}
+      - --hostname=https://${KEYCLOAK_HOST}.${DOMAIN}
       - --import-realm
-      - --db=dev-file
+    environment:
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://${PG_NODE}:${PG_PORT}/${KEYCLOAK_DB}
+      - KC_DB_USERNAME=${PG_USER}
+      - KC_DB_PASSWORD=${PG_PASSWORD}
+      - KC_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_ADMIN_USER}
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_TEMP_ADMIN_PASSWORD}
     volumes:
       - keycloak-data:/opt/keycloak/data
       - ./keycloak/canton.json:/opt/keycloak/data/import/canton.json:ro
     <<: *logging
+    depends_on:
+      keycloak-init:
+        condition: service_completed_successfully
     labels:
       - traefik.enable=true
       - traefik.http.routers.${KEYCLOAK_HOST}.service=${KEYCLOAK_HOST}

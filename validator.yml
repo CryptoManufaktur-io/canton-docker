@@ -24,7 +24,7 @@ services:
       fi'
   validator:
     image: "${VALIDATOR_DOCKER_REPO}:${VALIDATOR_DOCKER_TAG}"
-    network_mode: ${NETWORK_MODE}
+    network_mode: bridge
     environment:
       - SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_URL=${AUTH_WELLKNOWN_URL}
       - SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_CLIENT_ID=${VALIDATOR_AUTH_CLIENT_ID}
@@ -32,16 +32,17 @@ services:
       - SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_AUDIENCE=${LEDGER_API_AUTH_AUDIENCE}
       - SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_SCOPE=${LEDGER_API_AUTH_SCOPE:-}
       - SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_USER_NAME=${LEDGER_API_ADMIN_USER}
-      - SPLICE_APP_VALIDATOR_WALLET_USER_NAME=${LEDGER_API_ADMIN_USER}
+      - SPLICE_APP_VALIDATOR_WALLET_USER_NAME=${VALIDATOR_WALLET_ADMIN}
       - SPLICE_APP_VALIDATOR_AUTH_AUDIENCE=${VALIDATOR_AUTH_AUDIENCE}
       - SPLICE_APP_VALIDATOR_AUTH_JWKS_URL=${AUTH_JWKS_URL}
-      - SPLICE_APP_VALIDATOR_PARTICIPANT_ADDRESS=participant
+      - SPLICE_APP_VALIDATOR_PARTICIPANT_ADDRESS=172.17.0.1
       - SPLICE_APP_VALIDATOR_SV_SPONSOR_ADDRESS=${SPONSOR_SV_ADDRESS}
       - SPLICE_APP_VALIDATOR_ONBOARDING_SECRET=${ONBOARDING_SECRET}
       - SPLICE_APP_VALIDATOR_SCAN_ADDRESS=${SCAN_ADDRESS}
       - SPLICE_APP_VALIDATOR_PARTICIPANT_IDENTIFIER=${PARTICIPANT_IDENTIFIER}
       - SPLICE_APP_VALIDATOR_PARTY_HINT=${PARTY_HINT}
       - SPLICE_APP_CONTACT_POINT=${CONTACT_POINT}
+      - JAVA_TOOL_OPTIONS=-XX:+UseG1GC -XX:MaxRAMPercentage=75 -XX:InitialRAMPercentage=75 -Dscala.concurrent.context.minThreads=8 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/persistent-data -Dio.netty.noPreferDirect=true
       - |
         ADDITIONAL_CONFIG_PERSISTENCE=
             canton.validator-apps.validator_backend.storage {
@@ -78,11 +79,14 @@ services:
           canton.validator-apps.validator_backend.domains.global.buy-extra-traffic.min-topup-interval = ${TRAFFIC_TOPUP_INTERVAL}
     restart: unless-stopped
     <<: *logging
+    depends_on:
+      validator-init:
+        condition: service_completed_successfully
     labels:
       - traefik.enable=true
       - traefik.http.routers.${VALIDATOR_HOST}.service=${VALIDATOR_HOST}
       - traefik.http.routers.${VALIDATOR_HOST}.entrypoints=websecure
-      - traefik.http.routers.${VALIDATOR_HOST}.rule="Host(`${VALIDATOR_HOST}.${DOMAIN}`) && PathPrefix(`/api`)"
+      - traefik.http.routers.${VALIDATOR_HOST}.rule=Host(`${VALIDATOR_HOST}.${DOMAIN}`) && PathPrefix(`/api`)
       - traefik.http.routers.${VALIDATOR_HOST}.tls.certresolver=letsencrypt
       - traefik.http.routers.${VALIDATOR_HOST}lb.service=${VALIDATOR_HOST}
       - traefik.http.routers.${VALIDATOR_HOST}lb.entrypoints=websecure
@@ -99,12 +103,12 @@ services:
 
   wallet-ui:
     image: "${WALLET_UI_DOCKER_REPO}:${WALLET_UI_DOCKER_TAG}"
-    network_mode: ${NETWORK_MODE}
+    network_mode: bridge
     environment:
       - SPLICE_APP_UI_AUTH_AUDIENCE=${VALIDATOR_AUTH_AUDIENCE}
       - SPLICE_APP_UI_AUTH_CLIENT_ID=${WALLET_UI_CLIENT_ID}
       - SPLICE_APP_UI_AUTH_URL=${AUTH_URL}
-      - SPLICE_APP_UI_HTTP_URL=true
+      - SPLICE_APP_UI_HTTP_URL=false
       - SPLICE_APP_UI_NETWORK_NAME=${WALLET_UI_NETWORK_NAME}
       - SPLICE_APP_UI_NETWORK_FAVICON_URL=${WALLET_UI_NETWORK_FAVICON_URL}
       - SPLICE_APP_UI_AMULET_NAME=${WALLET_UI_AMULET_NAME}
@@ -114,15 +118,15 @@ services:
     <<: *logging
     labels:
       - traefik.enable=true
-      - traefik.http.routers.${KEYCLOAK_HOST}.service=${KEYCLOAK_HOST}
-      - traefik.http.routers.${KEYCLOAK_HOST}.entrypoints=websecure
-      - traefik.http.routers.${KEYCLOAK_HOST}.rule="Host(`${KEYCLOAK_HOST}.${DOMAIN}`) && PathPrefix(`/`)"
-      - traefik.http.routers.${KEYCLOAK_HOST}.tls.certresolver=letsencrypt
-      - traefik.http.routers.${KEYCLOAK_HOST}lb.service=${KEYCLOAK_HOST}
-      - traefik.http.routers.${KEYCLOAK_HOST}lb.entrypoints=websecure
-      - traefik.http.routers.${KEYCLOAK_HOST}lb.rule=Host(`${KEYCLOAK_LB}.${DOMAIN}`)
-      - traefik.http.routers.${KEYCLOAK_HOST}lb.tls.certresolver=letsencrypt
-      - traefik.http.services.${KEYCLOAK_HOST}.loadbalancer.server.port=8080
+      - traefik.http.routers.${VALIDATOR_HOST}-wallet.service=${VALIDATOR_HOST}-wallet
+      - traefik.http.routers.${VALIDATOR_HOST}-wallet.entrypoints=websecure
+      - traefik.http.routers.${VALIDATOR_HOST}-wallet.rule=Host(`${VALIDATOR_HOST}.${DOMAIN}`)
+      - traefik.http.routers.${VALIDATOR_HOST}-wallet.tls.certresolver=letsencrypt
+      - traefik.http.routers.${VALIDATOR_HOST}-walletlb.service=${VALIDATOR_HOST}-wallet
+      - traefik.http.routers.${VALIDATOR_HOST}-walletlb.entrypoints=websecure
+      - traefik.http.routers.${VALIDATOR_HOST}-walletlb.rule=Host(`${KEYCLOAK_LB}.${DOMAIN}`)
+      - traefik.http.routers.${VALIDATOR_HOST}-walletlb.tls.certresolver=letsencrypt
+      - traefik.http.services.${VALIDATOR_HOST}-wallet.loadbalancer.server.port=8080
 
 volumes:
   domain-upgrade-dump:
