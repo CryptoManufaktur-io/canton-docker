@@ -1,0 +1,43 @@
+{
+  "realm": "canton",
+  "enabled": true,
+  "clientScopes": [
+    {
+      "name": "openid",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "sub",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "consentRequired": "false",
+          "config": {
+            "introspection.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "validator-app",
+      "publicClient": false,
+      "secret": "validator-app-secret",
+      "serviceAccountsEnabled": true,
+      "defaultClientScopes": ["daml_ledger_api"],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "wallet-ui",
+      "publicClient": true,
+      "redirectUris": ["http://validator.example.com"],
+      "standardFlowEnabled": true,
+      "defaultClientScopes": ["openid"],
+      "optionalClientScopes": ["offline_access"]
+    }
+  ]
+}
