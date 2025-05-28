@@ -159,9 +159,6 @@ spec:
                 canton.validator-apps.validator_backend {
                   domain-migration-id = {{ .Values.migration_id }}
                 }
-            - name: ADDITIONAL_CONFIG_GLOBAL_DOMAIN_UPGRADE_DUMP_PATH
-              value: |-
-                canton.validator-apps.validator_backend.domain-migration-dump-path = "/domain-upgrade-dump/domain_migration_dump.json"
           ports:
             - containerPort: 5003
               protocol: TCP
