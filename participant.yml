@@ -25,7 +25,6 @@ services:
 
   participant:
     image: ${PARTICIPANT_DOCKER_REPO}:${PARTICIPANT_DOCKER_TAG}
-    pull_policy: never
     network_mode: ${NETWORK_MODE}
     environment:
       - AUTH_JWKS_URL=${AUTH_JWKS_URL}
