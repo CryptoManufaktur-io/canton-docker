@@ -95,7 +95,7 @@ services:
       - metrics.scrape=true
       - metrics.path=/metrics
       - metrics.port=10013
-      - metrics.instance=monitoring
+      - metrics.instance=validator
       - metrics.network=canton-${MIGRATION_ID}
     volumes:
       - domain-upgrade-dump:/domain-upgrade-dump

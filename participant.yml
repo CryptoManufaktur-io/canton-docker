@@ -43,3 +43,10 @@ services:
     depends_on:
       participant-init:
         condition: service_completed_successfully
+    labels:
+      - traefik.enable=false
+      - metrics.scrape=true
+      - metrics.path=/metrics
+      - metrics.port=10013
+      - metrics.instance=participant
+      - metrics.network=canton-${MIGRATION_ID}
