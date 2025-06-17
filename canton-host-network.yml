@@ -1,0 +1,7 @@
+# Host mode is required if you need to use an IAM Role in an EC2 Instance.
+services:
+  participant:
+    network_mode: host
+  validator:
+    environment:
+      - SPLICE_APP_VALIDATOR_PARTICIPANT_ADDRESS=172.17.0.1

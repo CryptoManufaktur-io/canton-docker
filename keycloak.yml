@@ -13,18 +13,18 @@ services:
       - POSTGRES_USER=${PG_USER:-postgres}
       - PGPASSWORD=${PG_PASSWORD:-postgres}
       - PG_NODE=${PG_NODE:-canton-postgres}
-      - PG_VALIDATOR_DB=${KEYCLOAK_DB}
+      - PG_PORT=${PG_PORT:-5432}
+      - KEYCLOAK_DB=${KEYCLOAK_DB}
     <<: *logging
     command: >
-      sh -c 'until psql -h "$$PG_NODE" -U "$$POSTGRES_USER" -c "select 1" >/dev/null 2>&1; do
-        echo "Waiting for PostgreSQL at $$PG_NODE..."; sleep 2;
+      sh -c 'until psql -h "$$PG_NODE" -p $$PG_PORT -U "$$POSTGRES_USER" -c "select 1" >/dev/null 2>&1; do
+        echo "Waiting for PostgreSQL at $$PG_NODE:$$PG_PORT..."; sleep 2;
       done;
-      if ! psql -h "$$PG_NODE" --username "$$POSTGRES_USER" -tAc "SELECT 1 FROM pg_database WHERE datname = '\''$$PG_VALIDATOR_DB'\''" | grep -q 1; then
-        psql -h "$$PG_NODE" --username "$$POSTGRES_USER" -c "CREATE DATABASE \"$$PG_VALIDATOR_DB\"";
+      if ! psql -h "$$PG_NODE" -p $$PG_PORT --username "$$POSTGRES_USER" -tAc "SELECT 1 FROM pg_database WHERE datname = '\''$$KEYCLOAK_DB'\''" | grep -q 1; then
+        psql -h "$$PG_NODE" -p $$PG_PORT --username "$$POSTGRES_USER" -c "CREATE DATABASE \"$$KEYCLOAK_DB\"";
       fi'
   keycloak:
-    image: ${KEYCLOAK_DOCKER_TAG}:${KEYCLOAK_DOCKET_TAG}
-    network_mode: ${NETWORK_MODE}
+    image: ${KEYCLOAK_DOCKER_REPO}:${KEYCLOAK_DOCKER_TAG}
     restart: unless-stopped
     stop_grace_period: 5m
     command:
