@@ -14,7 +14,7 @@ services:
       - PGPASSWORD=${PG_PASSWORD:-postgres}
       - PG_NODE=${PG_NODE:-canton-postgres}
       - PG_PORT=${PG_PORT:-5432}
-      - PG_PARTICIPANT_DB=participant_${MIGRATION_ID}
+      - PG_PARTICIPANT_DB=${PG_PARTICIPANT_DB:-participant}_${MIGRATION_ID}
     <<: *logging
     command: >
       sh -c 'until psql -h "$$PG_NODE" -p $$PG_PORT -U "$$POSTGRES_USER" -c "select 1" >/dev/null 2>&1; do
@@ -35,7 +35,7 @@ services:
       - CANTON_PARTICIPANT_POSTGRES_SCHEMA=participant
       - CANTON_PARTICIPANT_POSTGRES_USER=${PG_USER}
       - CANTON_PARTICIPANT_POSTGRES_PASSWORD=${PG_PASSWORD}
-      - CANTON_PARTICIPANT_POSTGRES_DB=participant_${MIGRATION_ID}
+      - CANTON_PARTICIPANT_POSTGRES_DB=${PG_PARTICIPANT_DB:-participant}_${MIGRATION_ID}
       - CANTON_PARTICIPANT_POSTGRES_PORT=${PG_PORT}
     restart: unless-stopped
     <<: *logging
