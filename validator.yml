@@ -14,7 +14,7 @@ services:
       - PGPASSWORD=${PG_PASSWORD:-postgres}
       - PG_NODE=${PG_NODE:-canton-postgres}
       - PG_PORT=${PG_PORT:-5432}
-      - PG_VALIDATOR_DB=validator_${MIGRATION_ID}
+      - PG_VALIDATOR_DB=${PG_VALIDATOR_DB:-validator}
     <<: *logging
     command: >
       sh -c 'until psql -h "$$PG_NODE" -p $$PG_PORT -U "$$POSTGRES_USER" -c "select 1" >/dev/null 2>&1; do
@@ -50,7 +50,7 @@ services:
               config {
                 dataSourceClass = "org.postgresql.ds.PGSimpleDataSource"
                 properties = {
-                  databaseName = validator_${MIGRATION_ID}
+                  databaseName = ${PG_VALIDATOR_DB:-validator}
                   currentSchema = validator
                   serverName = ${PG_NODE}
                   portNumber = ${PG_PORT}
