@@ -42,6 +42,7 @@ services:
       - SPLICE_APP_VALIDATOR_PARTICIPANT_IDENTIFIER=${PARTICIPANT_IDENTIFIER}
       - SPLICE_APP_VALIDATOR_PARTY_HINT=${PARTY_HINT}
       - SPLICE_APP_CONTACT_POINT=${CONTACT_POINT}
+      - ADDITIONAL_CONFIG_GLOBAL_DOMAIN_UPGRADE_DUMP_PATH=canton.validator-apps.validator_backend.domain-migration-dump-path = "/domain-upgrade-dump/domain_migration_dump.json"
       - JAVA_TOOL_OPTIONS=-XX:+UseG1GC -XX:MaxRAMPercentage=75 -XX:InitialRAMPercentage=75 -Dscala.concurrent.context.minThreads=8 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/persistent-data -Dio.netty.noPreferDirect=true
       - |
         ADDITIONAL_CONFIG_PERSISTENCE=
