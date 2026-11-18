@@ -34,6 +34,7 @@ services:
       - --import-realm
     environment:
       - KC_DB=postgres
+      - JAVA_OPTS_APPEND=-XX:-UseBASE64Intrinsics
       - KC_DB_URL=jdbc:postgresql://${PG_NODE}:${PG_PORT}/${KEYCLOAK_DB}
       - KC_DB_USERNAME=${PG_USER}
       - KC_DB_PASSWORD=${PG_PASSWORD}
