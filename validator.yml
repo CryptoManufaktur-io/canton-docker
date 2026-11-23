@@ -78,6 +78,12 @@ services:
         ADDITIONAL_CONFIG_TOPUPS=
           canton.validator-apps.validator_backend.domains.global.buy-extra-traffic.target-throughput = ${TRAFFIC_TOPUP_THROUGHPUT}
           canton.validator-apps.validator_backend.domains.global.buy-extra-traffic.min-topup-interval = ${TRAFFIC_TOPUP_INTERVAL}
+      - |
+        ADDITIONAL_CONFIG_DISABLE_ADMIN_API_AUTH=
+          canton.validator-apps.validator_backend.participant-client.admin-api.auth-config = ""
+          canton.validator-apps.validator_backend.participant-client.admin-api.auth-config {
+            type = "none"
+          }
     restart: unless-stopped
     <<: *logging
     depends_on:
