@@ -40,6 +40,8 @@ services:
       - LOG_LEVEL_STDOUT=${LOG_LEVEL_STDOUT:-INFO}
       - LOG_LEVEL_CANTON=${LOG_LEVEL_CANTON:-INFO}
       - JAVA_TOOL_OPTIONS=-XX:-UseBASE64Intrinsics
+      # Splice 0.10.3+: image ships an unconditional admin-api auth-services block; opt out (admin API stays unauthenticated)
+      - ADDITIONAL_CONFIG_DISABLE_ADMIN_API_AUTH=canton.participants.participant.admin-api.auth-services=[]
     restart: unless-stopped
     <<: *logging
     depends_on:
