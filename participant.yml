@@ -42,6 +42,10 @@ services:
       - JAVA_TOOL_OPTIONS=-XX:-UseBASE64Intrinsics
       # Splice 0.10.3+: image ships an unconditional admin-api auth-services block; opt out (admin API stays unauthenticated)
       - ADDITIONAL_CONFIG_DISABLE_ADMIN_API_AUTH=canton.participants.participant.admin-api.auth-services=[]
+      - |
+        ADDITIONAL_CONFIG_PARTICIPANT_PORTS=
+          canton.participants.participant.ledger-api.port = ${PARTICIPANT_LEDGER_API_PORT:-5001}
+          canton.participants.participant.admin-api.port = ${PARTICIPANT_ADMIN_API_PORT:-5002}
     restart: unless-stopped
     <<: *logging
     depends_on:
