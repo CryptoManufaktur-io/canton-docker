@@ -21,6 +21,14 @@ The `./cantond` script can be used as a quick-start:
 
 To update the software, run `./cantond update` and then `./cantond up`
 
+## Participant ports
+
+The participant Ledger API and Admin API listen on 5001 and 5002. Set `PARTICIPANT_LEDGER_API_PORT` and
+`PARTICIPANT_ADMIN_API_PORT` in `.env` to move them; `participant.yml`, `validator.yml` and `rpc-shared.yaml` all read
+the same two variables, so the validator follows. Anything else that dials the participant directly, such as a Traefik
+route, `grpcurl` or a Canton console, needs the new ports too. The gRPC and HTTP health ports (5061, 5071), the JSON
+API (7575) and metrics (10013) are unchanged.
+
 ## Customization
 
 `custom.yml` is not tracked by git and can be used to override anything in the provided yml files. If you use it,

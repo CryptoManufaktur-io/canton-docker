@@ -84,6 +84,10 @@ services:
           canton.validator-apps.validator_backend.participant-client.admin-api.auth-config {
             type = "none"
           }
+      - |
+        ADDITIONAL_CONFIG_PARTICIPANT_PORTS=
+          canton.validator-apps.validator_backend.participant-client.ledger-api.client-config.port = ${PARTICIPANT_LEDGER_API_PORT:-5001}
+          canton.validator-apps.validator_backend.participant-client.admin-api.client-config.port = ${PARTICIPANT_ADMIN_API_PORT:-5002}
     restart: unless-stopped
     <<: *logging
     depends_on:

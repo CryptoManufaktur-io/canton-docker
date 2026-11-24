@@ -7,8 +7,8 @@ services:
       - 8080:8080/tcp
   participant:
     ports:
-      - 5001:5001/tcp
-      - 5002:5002/tcp
+      - ${PARTICIPANT_LEDGER_API_PORT:-5001}:${PARTICIPANT_LEDGER_API_PORT:-5001}/tcp
+      - ${PARTICIPANT_ADMIN_API_PORT:-5002}:${PARTICIPANT_ADMIN_API_PORT:-5002}/tcp
       - 7575:7575/tcp
       - 10013:10013/tcp
   keycloak:
